@@ -1,0 +1,246 @@
+// ----------------------------------------------------------------------------
+// Copyright (c) 2020-2024 RISC-V Steel contributors
+//
+// This work is licensed under the MIT License, see LICENSE file for details.
+// SPDX-License-Identifier: MIT
+// ----------------------------------------------------------------------------
+
+module rvsteel2 #(
+  parameter CLOCK_FREQUENCY = 10000000, // 10 MHz
+  parameter UART_BAUD_RATE = 9600,
+  parameter MEMORY_SIZE = 32768,
+  parameter MEMORY_INIT_FILE = "mem.hex",
+  parameter BOOT_ADDRESS = 32'h00000000,
+  parameter GPIO_WIDTH = 8,
+  parameter SPI_NUM_CHIP_SELECT = 1
+) (
+  input   wire                            clock,
+  input   wire                            reset,
+  input   wire                            halt,
+  input   wire                            uart_rx,
+  output  wire                            uart_tx,
+  input   wire                            uart_rx1,
+  output  wire                            uart_tx1,
+  input   wire                            uart_rx2,
+  output  wire                            uart_tx2,
+  input   wire                            uart_rx3,
+  output  wire                            uart_tx3,
+  input   wire  [GPIO_WIDTH-1:0]          gpio_input,
+  output  wire  [GPIO_WIDTH-1:0]          gpio_oe,
+  output  wire  [GPIO_WIDTH-1:0]          gpio_output,
+  output  wire                            sclk,
+  output  wire                            pico,
+  input   wire                            poci,
+  output  wire  [SPI_NUM_CHIP_SELECT-1:0] cs,
+  output  wire                            watchdog_reset,
+  output  wire  [31:0]                    counter_out,
+  output  wire  [31:0]                    palavra_out
+);
+
+  localparam NUM_DEVICES = 8;
+  localparam D0_RAM    = 0;
+  localparam D1_UART0  = 1;
+  localparam D2_UART1  = 2;
+  localparam D3_UART2  = 3;
+  localparam D4_UART3  = 4;
+  localparam D5_MTIMER = 5;
+  localparam D6_GPIO   = 6;
+  localparam D7_SPI    = 7;
+
+  wire [NUM_DEVICES*32-1:0] device_start_address;
+  wire [NUM_DEVICES*32-1:0] device_region_size;
+
+  assign device_start_address[32*D0_RAM +: 32] = 32'h0000_0000;
+  assign device_region_size[32*D0_RAM +: 32]   = MEMORY_SIZE;
+
+  assign device_start_address[32*D1_UART0 +: 32] = 32'h8000_0000;
+  assign device_region_size[32*D1_UART0 +: 32]   = 16;
+
+  assign device_start_address[32*D2_UART1 +: 32] = 32'h8000_1000;
+  assign device_region_size[32*D2_UART1 +: 32]   = 16;
+
+  assign device_start_address[32*D3_UART2 +: 32] = 32'h8000_2000;
+  assign device_region_size[32*D3_UART2 +: 32]   = 16;
+
+  assign device_start_address[32*D4_UART3 +: 32] = 32'h8000_3000;
+  assign device_region_size[32*D4_UART3 +: 32]   = 16;
+
+  assign device_start_address[32*D5_MTIMER +: 32] = 32'h8001_0000;
+  assign device_region_size[32*D5_MTIMER +: 32]   = 32;
+
+  assign device_start_address[32*D6_GPIO +: 32] = 32'h8002_0000;
+  assign device_region_size[32*D6_GPIO +: 32]   = 32;
+
+  assign device_start_address[32*D7_SPI +: 32] = 32'h8003_0000;
+  assign device_region_size[32*D7_SPI +: 32]   = 32;
+
+  wire [31:0] manager_rw_address, manager_read_data, manager_write_data;
+  wire manager_read_request, manager_read_response;
+  wire [3:0] manager_write_strobe;
+  wire manager_write_request, manager_write_response;
+
+  wire [31:0] device_rw_address;
+  wire [NUM_DEVICES*32-1:0] device_read_data;
+  wire [NUM_DEVICES-1:0] device_read_request, device_read_response;
+  wire [31:0] device_write_data;
+  wire [3:0] device_write_strobe;
+  wire [NUM_DEVICES-1:0] device_write_request, device_write_response;
+
+  wire [63:0] real_time_clock = 64'b0;
+  wire [15:0] irq_fast;
+  wire irq_external, irq_timer, irq_software;
+  wire [15:0] irq_fast_response;
+  wire irq_external_response, irq_timer_response, irq_software_response;
+
+  wire irq_uart0, irq_uart1, irq_uart2, irq_uart3;
+  wire irq_uart0_response, irq_uart1_response, irq_uart2_response, irq_uart3_response;
+
+  assign irq_fast = {12'b0, irq_uart3, irq_uart2, irq_uart1, irq_uart0};
+  assign irq_uart0_response = irq_fast_response[0];
+  assign irq_uart1_response = irq_fast_response[1];
+  assign irq_uart2_response = irq_fast_response[2];
+  assign irq_uart3_response = irq_fast_response[3];
+
+  watchdog #(
+    //.TIMEOUT(32'h2F9B7F0)
+    .TIMEOUT(32'hA0)) watchdog_instance (
+    .clock(clock), .reset(reset), .feed(halt),
+    .watchdog_reset(watchdog_reset), .counter_out(counter_out)
+  );
+
+  rvsteel_core #(.BOOT_ADDRESS(BOOT_ADDRESS)) rvsteel_core_instance (
+    .clock(clock), .reset(reset), .halt(halt),
+    .rw_address(manager_rw_address), .read_data(manager_read_data),
+    .read_request(manager_read_request), .read_response(manager_read_response),
+    .write_data(manager_write_data), .write_strobe(manager_write_strobe),
+    .write_request(manager_write_request), .write_response(manager_write_response),
+    .irq_fast(irq_fast), .irq_external(irq_external), .irq_timer(irq_timer),
+    .irq_software(irq_software), .irq_fast_response(irq_fast_response),
+    .irq_external_response(irq_external_response), .irq_timer_response(irq_timer_response),
+    .irq_software_response(irq_software_response), .real_time_clock(real_time_clock)
+  );
+
+  rvsteel_bus #(.NUM_DEVICES(NUM_DEVICES)) rvsteel_bus_instance (
+    .clock(clock), .reset(reset),
+    .manager_rw_address(manager_rw_address), .manager_read_data(manager_read_data),
+    .manager_read_request(manager_read_request), .manager_read_response(manager_read_response),
+    .manager_write_data(manager_write_data), .manager_write_strobe(manager_write_strobe),
+    .manager_write_request(manager_write_request), .manager_write_response(manager_write_response),
+    .device_rw_address(device_rw_address), .device_read_data(device_read_data),
+    .device_read_request(device_read_request), .device_read_response(device_read_response),
+    .device_write_data(device_write_data), .device_write_strobe(device_write_strobe),
+    .device_write_request(device_write_request), .device_write_response(device_write_response),
+    .device_start_address(device_start_address), .device_region_size(device_region_size)
+  );
+
+  wire [31:0] memoria1_in, memoria2_in, memoria1_out, memoria2_out;
+
+  integrador integrador_inst (
+    .clk(clock), 
+    // To memory
+    .palavra_in(manager_write_data),
+    .memoria1_in(memoria1_in), 
+    .memoria2_in(memoria2_in),
+    // From Memory
+    .memoria1_out(memoria1_out), 
+    .memoria2_out(memoria2_out),
+    .palavra_out(palavra_out)
+  );
+
+// Conexões de escrita na RAM
+assign device_write_data = manager_write_data;
+assign device_write_request[D0_RAM] = manager_write_request;
+
+// Conexões de leitura da RAM
+assign device_read_request[D0_RAM] = manager_read_request;
+assign manager_read_response = device_read_response[D0_RAM];
+
+// Dado de leitura reconstruído pelo integrador
+assign manager_read_data = palavra_out;
+
+  memory_ip #(.MEMORY_SIZE(MEMORY_SIZE), .MEMORY_INIT_FILE(MEMORY_INIT_FILE)) memory_ip_1_instance (
+    .clock(clock), 
+    .reset(reset), 
+    .rw_address(device_rw_address),
+    .write_data(memoria1_in), 
+    .write_strobe(device_write_strobe),
+    .write_request(device_write_request[D0_RAM]),
+    .read_data(memoria1_out), 
+    .read_response(device_read_response[D0_RAM])
+  );
+
+  memory_ip #(.MEMORY_SIZE(MEMORY_SIZE), .MEMORY_INIT_FILE(MEMORY_INIT_FILE)) memory_ip_2_instance (
+    .clock(clock), 
+    .reset(reset), 
+    .rw_address(device_rw_address),
+    .write_data(memoria2_in), 
+    .write_strobe(device_write_strobe),
+    .write_request(device_write_request[D0_RAM]),
+    .read_data(memoria2_out), 
+    .read_response(device_read_response[D0_RAM])
+  );
+
+  rvsteel_uart #(.CLOCK_FREQUENCY(CLOCK_FREQUENCY), .UART_BAUD_RATE(UART_BAUD_RATE)) uart0 (
+    .clock(clock), .reset(reset), .rw_address(device_rw_address[4:0]),
+    .read_data(device_read_data[32*D1_UART0 +: 32]),
+    .read_request(device_read_request[D1_UART0]), .read_response(device_read_response[D1_UART0]),
+    .write_data(device_write_data[7:0]), .write_request(device_write_request[D1_UART0]),
+    .write_response(device_write_response[D1_UART0]), .uart_tx(uart_tx), .uart_rx(uart_rx),
+    .uart_irq(irq_uart0), .uart_irq_response(irq_uart0_response)
+  );
+
+  rvsteel_uart #(.CLOCK_FREQUENCY(CLOCK_FREQUENCY), .UART_BAUD_RATE(UART_BAUD_RATE)) uart1 (
+    .clock(clock), .reset(reset), .rw_address(device_rw_address[4:0]),
+    .read_data(device_read_data[32*D2_UART1 +: 32]),
+    .read_request(device_read_request[D2_UART1]), .read_response(device_read_response[D2_UART1]),
+    .write_data(device_write_data[7:0]), .write_request(device_write_request[D2_UART1]),
+    .write_response(device_write_response[D2_UART1]), .uart_tx(uart_tx1), .uart_rx(uart_rx1),
+    .uart_irq(irq_uart1), .uart_irq_response(irq_uart1_response)
+  );
+
+  rvsteel_uart #(.CLOCK_FREQUENCY(CLOCK_FREQUENCY), .UART_BAUD_RATE(UART_BAUD_RATE)) uart2 (
+    .clock(clock), .reset(reset), .rw_address(device_rw_address[4:0]),
+    .read_data(device_read_data[32*D3_UART2 +: 32]),
+    .read_request(device_read_request[D3_UART2]), .read_response(device_read_response[D3_UART2]),
+    .write_data(device_write_data[7:0]), .write_request(device_write_request[D3_UART2]),
+    .write_response(device_write_response[D3_UART2]), .uart_tx(uart_tx2), .uart_rx(uart_rx2),
+    .uart_irq(irq_uart2), .uart_irq_response(irq_uart2_response)
+  );
+
+  rvsteel_uart #(.CLOCK_FREQUENCY(CLOCK_FREQUENCY), .UART_BAUD_RATE(UART_BAUD_RATE)) uart3 (
+    .clock(clock), .reset(reset), .rw_address(device_rw_address[4:0]),
+    .read_data(device_read_data[32*D4_UART3 +: 32]),
+    .read_request(device_read_request[D4_UART3]), .read_response(device_read_response[D4_UART3]),
+    .write_data(device_write_data[7:0]), .write_request(device_write_request[D4_UART3]),
+    .write_response(device_write_response[D4_UART3]), .uart_tx(uart_tx3), .uart_rx(uart_rx3),
+    .uart_irq(irq_uart3), .uart_irq_response(irq_uart3_response)
+  );
+
+  rvsteel_mtimer rvsteel_mtimer_instance (
+    .clock(clock), .reset(reset), .rw_address(device_rw_address[4:0]),
+    .read_data(device_read_data[32*D5_MTIMER +: 32]),
+    .read_request(device_read_request[D5_MTIMER]), .read_response(device_read_response[D5_MTIMER]),
+    .write_data(device_write_data), .write_strobe(device_write_strobe),
+    .write_request(device_write_request[D5_MTIMER]), .write_response(device_write_response[D5_MTIMER]),
+    .irq(irq_timer)
+  );
+
+  rvsteel_gpio #(.GPIO_WIDTH(GPIO_WIDTH)) rvsteel_gpio_instance (
+    .clock(clock), .reset(reset), .rw_address(device_rw_address[4:0]),
+    .read_data(device_read_data[32*D6_GPIO +: 32]),
+    .read_request(device_read_request[D6_GPIO]), .read_response(device_read_response[D6_GPIO]),
+    .write_data(device_write_data[GPIO_WIDTH-1:0]), .write_strobe(device_write_strobe),
+    .write_request(device_write_request[D6_GPIO]), .write_response(device_write_response[D6_GPIO]),
+    .gpio_oe(gpio_oe), .gpio_output(gpio_output), .gpio_input(gpio_input)
+  );
+
+  rvsteel_spi #(.SPI_NUM_CHIP_SELECT(SPI_NUM_CHIP_SELECT)) rvsteel_spi_instance (
+    .clock(clock), .reset(reset), .rw_address(device_rw_address[4:0]),
+    .read_data(device_read_data[32*D7_SPI +: 32]),
+    .read_request(device_read_request[D7_SPI]), .read_response(device_read_response[D7_SPI]),
+    .write_data(device_write_data), .write_strobe(device_write_strobe),
+    .write_request(device_write_request[D7_SPI]), .write_response(device_write_response[D7_SPI]),
+    .sclk(sclk), .pico(pico), .poci(poci), .cs(cs)
+  );
+
+endmodule

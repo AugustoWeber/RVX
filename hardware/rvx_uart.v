@@ -47,15 +47,15 @@ module rvx_uart #(
   localparam REG_READY = 5'h08;
   localparam REG_RXSTATUS = 5'h0c;
 
-  reg [31:0] tx_cycle_counter = 32'b0;
-  reg [31:0] rx_cycle_counter = 32'b0;
-  reg [3:0]  tx_bit_counter = 4'b0;
-  reg [3:0]  rx_bit_counter = 4'b0;
-  reg [9:0]  tx_register = 10'b1111111111;
-  reg [7:0]  rx_register = 8'b0;
-  reg [7:0]  rx_data = 8'b0;
-  reg        rx_active = 1'b0;
-  reg        reset_reg = 1'b0;
+  reg [31:0] tx_cycle_counter; // = 32'b0;
+  reg [31:0] rx_cycle_counter; // = 32'b0;
+  reg [3:0]  tx_bit_counter; // = 4'b0;
+  reg [3:0]  rx_bit_counter; // = 4'b0;
+  reg [9:0]  tx_register; // = 10'b1111111111;
+  reg [7:0]  rx_register; // = 8'b0;
+  reg [7:0]  rx_data; // = 8'b0;
+  reg        rx_active; // = 1'b0;
+  reg        reset_reg; // = 1'b0;
 
   wire       reset_internal;
 
@@ -72,9 +72,7 @@ module rvx_uart #(
       tx_register <= 10'b1111111111;
       tx_bit_counter <= 0;
     end
-    else if (tx_bit_counter == 0 &&
-             rw_address == REG_WDATA &&
-             write_request == 1'b1) begin
+    else if (tx_bit_counter == 0 && rw_address == REG_WDATA && write_request == 1'b1) begin
       tx_cycle_counter <= 0;
       tx_register <= {1'b1, write_data[7:0], 1'b0};
       tx_bit_counter <= 10;
@@ -103,9 +101,7 @@ module rvx_uart #(
       rx_active <= 1'b0;
     end
     else if (uart_irq == 1'b1) begin
-      if (uart_irq_response == 1'b1 || 
-          (rw_address == REG_RDATA &&
-           read_request == 1'b1)) begin
+      if (uart_irq_response == 1'b1 || (rw_address == REG_RDATA && read_request == 1'b1)) begin
         rx_cycle_counter <= 0;
         rx_register <= 8'h00;
         rx_data <= rx_data;

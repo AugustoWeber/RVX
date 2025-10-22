@@ -9,7 +9,8 @@
 cmake_minimum_required(VERSION 3.15)
 
 # Name of the executable to be generated
-set(APP_NAME "hello_world")
+# set(APP_NAME "uart-hello")
+set(APP_NAME "programa")
 
 # Inform the same value provided for the MEMORY_SIZE parameter of rvx
 set(MEMORY_SIZE 8K)
@@ -33,13 +34,15 @@ set(APP_ABI ilp32)
 set(CMAKE_CXX_STANDARD 11)
 
 # C++ optimization level
-set(CMAKE_CXX_FLAGS "-O2")
+# set(CMAKE_CXX_FLAGS "-O2")
+set(CMAKE_CXX_FLAGS "-O0")
 
 # C standard in use
 set(CMAKE_C_STANDARD 11)
 
 # C optimization level
-set(CMAKE_C_FLAGS "-O2")
+# set(CMAKE_C_FLAGS "-O2")
+set(CMAKE_C_FLAGS "-O0")
 
 # Cross-Compiling for a generic microcontroller
 set(CMAKE_SYSTEM_NAME Generic)
@@ -51,14 +54,13 @@ set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 set(CMAKE_EXECUTABLE_SUFFIX ".elf")
 
 # Get more verbose output from Makefile builds
-set(CMAKE_VERBOSE_MAKEFILE OFF)
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # Do not show target completion messages
-set(CMAKE_TARGET_MESSAGES OFF)
+set(CMAKE_TARGET_MESSAGES ON)
 
 # Give TOOLCHAIN_PREFIX a default value if its definition is missing
 if(NOT DEFINED TOOLCHAIN_PREFIX)
-  message(STATUS "[INFO] TOOLCHAIN_PREFIX set to default value: riscv32-unknown-elf-")
   set(TOOLCHAIN_PREFIX riscv32-unknown-elf-)
 endif()
 

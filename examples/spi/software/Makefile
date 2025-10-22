@@ -19,6 +19,10 @@ ifdef TOOLCHAIN_PREFIX
 TOOLCHAIN_PREFIX_FLAG = -DTOOLCHAIN_PREFIX=${TOOLCHAIN_PREFIX}
 endif
 
+ifdef PREFIX
+TOOLCHAIN_PREFIX_FLAG = -DTOOLCHAIN_PREFIX="${PREFIX}/bin/riscv32-unknown-elf-"
+endif
+
 all:
 	@echo "\nUsage:\n\n  make <target>\n"
 	@echo "Available targets:\n"

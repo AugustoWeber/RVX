@@ -10,43 +10,53 @@ module rvx #(
   // Frequency of 'clock' signal
   parameter CLOCK_FREQUENCY = 50000000  ,
   // Desired baud rate for UART unit
-  parameter UART_BAUD_RATE = 9600       ,
+  parameter UART_BAUD_RATE = 115200     ,
   // Memory size in bytes - must be a power of 2
-  parameter MEMORY_SIZE = 8192          ,
+  parameter MEMORY_SIZE = 8192         ,
   // Text file with program and data (one hex value per line)
   parameter MEMORY_INIT_FILE = ""       ,
   // Address of the first instruction to fetch from memory
   parameter BOOT_ADDRESS = 32'h00000000 ,
   // Number of available I/O ports
-  parameter GPIO_WIDTH = 1              ,
+  parameter GPIO_WIDTH = 16              ,
   // Number of CS (Chip Select) pins for the SPI controller
-  parameter SPI_NUM_CHIP_SELECT = 1
+  parameter SPI_NUM_CHIP_SELECT = 3,
+  parameter N_UART = 4
 
   ) (
 
   input   wire                            clock       ,
   input   wire                            reset       ,
   input   wire                            halt        ,
-  input   wire                            uart_rx     ,
-  output  wire                            uart_tx     ,
+  input   wire  [N_UART-1:0]              uart_rx     ,
+  output  wire  [N_UART-1:0]              uart_tx     ,
   input   wire  [GPIO_WIDTH-1:0]          gpio_input  ,
   output  wire  [GPIO_WIDTH-1:0]          gpio_oe     ,
   output  wire  [GPIO_WIDTH-1:0]          gpio_output ,
   output  wire                            sclk        ,
   output  wire                            pico        ,
   input   wire                            poci        ,
-  output  wire  [SPI_NUM_CHIP_SELECT-1:0] cs
-
+  output  wire  [SPI_NUM_CHIP_SELECT-1:0] cs          ,
+  input   wire                            TM  // DFT pin Test Mode
+  // DFT pins:
+  // TM: Test Mode, Specific propose Pin
+  // SI: GPIO 0-3
+  // SO: GPIO 4-7
+  // SE: Sacan Enable GPIO 8
   );
 
   // System bus configuration
 
-  localparam NUM_DEVICES    = 5;
+  localparam NUM_DEVICES    = 9;
   localparam D0_RAM         = 0;
   localparam D1_UART        = 1;
   localparam D2_MTIMER      = 2;
   localparam D3_GPIO        = 3;
   localparam D4_SPI         = 4;
+  localparam D5_UART        = 5;
+  localparam D6_UART        = 6;
+  localparam D7_UART        = 7;
+  localparam D8_PMU         = 8;
 
   wire  [NUM_DEVICES*32-1:0] device_start_address;
   wire  [NUM_DEVICES*32-1:0] device_region_size;
@@ -65,6 +75,18 @@ module rvx #(
 
   assign device_start_address [32*D4_SPI      +: 32]  = 32'h8003_0000;
   assign device_region_size   [32*D4_SPI      +: 32]  = 32;
+
+  assign device_start_address [32*D5_UART      +: 32]  = 32'h8000_1000;
+  assign device_region_size   [32*D5_UART      +: 32]  = 32;
+
+  assign device_start_address [32*D6_UART      +: 32]  = 32'h8000_2000;
+  assign device_region_size   [32*D6_UART      +: 32]  = 32;
+
+  assign device_start_address [32*D7_UART      +: 32]  = 32'h8000_3000;
+  assign device_region_size   [32*D7_UART      +: 32]  = 32;
+
+  assign device_start_address [32*D8_PMU       +: 32]  = 32'h8000_4000;
+  assign device_region_size   [32*D8_PMU       +: 32]  = 32;
 
   // RVX 32-bit Processor (Manager Device) <=> System Bus
 
@@ -106,32 +128,36 @@ module rvx #(
   wire         irq_timer_response;
   wire         irq_software_response;
 
-  wire         irq_uart;
-  wire         irq_uart_response;
+  wire  [3:0]  irq_uart;
+  wire  [3:0]  irq_uart_response;
+
+  wire  [3:0]  reset_uart;
+
 
   // Interrupt signals map
 
-  assign irq_fast               = {15'b0, irq_uart}; // Give UART interrupts the highest priority
-  assign irq_uart_response      = irq_fast_response[0];
+  assign irq_fast               = {12'b0, irq_uart}; // Give UART interrupts the highest priority
+  assign irq_uart_response[N_UART-1:0] = irq_fast_response[N_UART-1:0];
 
   assign irq_external           = 1'b0; // unused
   assign irq_software           = 1'b0; // unused
 
+  // PMU signals
+  wire [7:0] save, rest, iso, sleep_control, sleep_ack;
 
-  rvx_core #(
+  assign reset_uart[0] = reset | sleep_ack[0];
+  assign reset_uart[1] = reset | sleep_ack[1];
+  assign reset_uart[2] = reset | sleep_ack[2];
+  assign reset_uart[3] = reset | sleep_ack[3];
 
-    .BOOT_ADDRESS                   (BOOT_ADDRESS                       )
-
+  rvx_core #(.BOOT_ADDRESS (BOOT_ADDRESS)
   ) rvx_core_instance (
-
     // Global signals
-
     .clock                          (clock                              ),
     .reset                          (reset                              ),
     .halt                           (halt                               ),
 
     // IO interface
-
     .rw_address                     (manager_rw_address                 ),
     .read_data                      (manager_read_data                  ),
     .read_request                   (manager_read_request               ),
@@ -142,38 +168,28 @@ module rvx #(
     .write_response                 (manager_write_response             ),
 
     // Interrupt request signals
-
     .irq_fast                       (irq_fast                           ),
     .irq_external                   (irq_external                       ),
     .irq_timer                      (irq_timer                          ),
     .irq_software                   (irq_software                       ),
 
     // Interrupt response signals
-
     .irq_fast_response              (irq_fast_response                  ),
     .irq_external_response          (irq_external_response              ),
     .irq_timer_response             (irq_timer_response                 ),
     .irq_software_response          (irq_software_response              ),
 
     // Real Time Clock
-
     .real_time_clock                (real_time_clock                    )
-
   );
 
-  rvx_bus #(
-
-    .NUM_DEVICES(NUM_DEVICES)
-
+  rvx_bus #(.NUM_DEVICES(NUM_DEVICES)
   ) rvx_bus_instance (
-
     // Global signals
-
     .clock                          (clock                              ),
     .reset                          (reset                              ),
 
     // Interface with the manager device (Processor Core IP)
-
     .manager_rw_address             (manager_rw_address                 ),
     .manager_read_data              (manager_read_data                  ),
     .manager_read_request           (manager_read_request               ),
@@ -184,7 +200,6 @@ module rvx #(
     .manager_write_response         (manager_write_response             ),
 
     // Interface with the managed devices
-
     .device_rw_address              (device_rw_address                  ),
     .device_read_data               (device_read_data                   ),
     .device_read_request            (device_read_request                ),
@@ -195,139 +210,220 @@ module rvx #(
     .device_write_response          (device_write_response              ),
 
     // Base addresses and masks of the managed devices
-
     .device_start_address          (device_start_address                ),
     .device_region_size            (device_region_size                  )
 
   );
 
-  rvx_ram #(
+  `ifdef ECC
+    
+    wire [63:0] device_read_data_ECC, device_write_data_ECC;
+    
+    integrador ecc_i (
+      // input wire clk,
+      // ECC Code
+      .palavra_in (device_write_data), //input wire [31:0] palavra_in, // Entrada de 32 bits
+      .memoria1_in (device_write_data_ECC[31:0]), //input wire [31:0] memoria1_in, // Entrada da Memória 1
+      .memoria2_in (device_write_data_ECC[63:32]), //input wire [31:0] memoria2_in, // Entrada da Memória 2
+      // ECC Decode
+      .memoria1_out (device_read_data_ECC[31:0]), //output wire [31:0] memoria1_out, // Saída da Memória 1 (para escrita)
+      .memoria2_out (device_read_data_ECC[63:32]), //output wire [31:0] memoria2_out, // Saída da Memória 2 (para escrita)
+      .palavra_out ((device_read_data[32*D0_RAM +: 32])) //output wire [31:0] palavra_out // Saída final do microcontrolador
+    );
+    
+    rvx_ram #(
+      .MEMORY_SIZE      (MEMORY_SIZE ),
+      .MEMORY_INIT_FILE (MEMORY_INIT_FILE )
+    ) rvx_ram0_i (
+      // Global signals
+      .clock            (clock ),
+      .reset            (reset ),
+      // IO interface
+      .rw_address       (device_rw_address   ),
+      .read_data        (device_read_data_0  ),
+      .read_request     (device_read_request[D0_RAM]        ),
+      .read_response    (device_read_response[D0_RAM]       ),
+      .write_data       (device_write_data   ),
+      .write_strobe     (device_write_strobe ),
+      .write_request    (device_write_request[D0_RAM]       ),
+      .write_response   (device_write_response[D0_RAM]      )
+    );
 
-    .MEMORY_SIZE                    (MEMORY_SIZE                        ),
-    .MEMORY_INIT_FILE               (MEMORY_INIT_FILE                   )
+    rvx_ram #(
+      .MEMORY_SIZE      (MEMORY_SIZE ),
+      .MEMORY_INIT_FILE (MEMORY_INIT_FILE )
+    ) rvx_ram1_i (
+      // Global signals
+      .clock            (clock ),
+      .reset            (reset ),
+      // IO interface
+      .rw_address       (device_rw_address                  ),
+      .read_data        (device_read_data[32*D0_RAM +: 32]  ),
+      .read_request     (device_read_request[D0_RAM]        ),
+      .read_response    (device_read_response[D0_RAM]       ),
+      .write_data       (device_write_data                  ),
+      .write_strobe     (device_write_strobe                ),
+      .write_request    (device_write_request[D0_RAM]       ),
+      .write_response   (device_write_response[D0_RAM]      )
+    );
 
-  ) rvx_ram_instance (
+  `else //ECC
+    rvx_ram #(
+      .MEMORY_SIZE      (MEMORY_SIZE ),
+      .MEMORY_INIT_FILE (MEMORY_INIT_FILE )
+    ) rvx_ram_i (
+      // Global signals
+      .clock            (clock ),
+      .reset            (reset ),
+      // IO interface
+      .rw_address       (device_rw_address                  ),
+      .read_data        (device_read_data[32*D0_RAM +: 32]  ),
+      .read_request     (device_read_request[D0_RAM]        ),
+      .read_response    (device_read_response[D0_RAM]       ),
+      .write_data       (device_write_data                  ),
+      .write_strobe     (device_write_strobe                ),
+      .write_request    (device_write_request[D0_RAM]       ),
+      .write_response   (device_write_response[D0_RAM]      )
+    );
+  `endif //ECC
 
+  rvx_uart #(
+    .CLOCK_FREQUENCY         (CLOCK_FREQUENCY                    ),
+    .UART_BAUD_RATE          (UART_BAUD_RATE                     )
+  ) rvx_uart0_instance (
     // Global signals
-
-    .clock                          (clock                              ),
-    .reset                          (reset                              ),
-
+    .clock                   (clock                              ),
+    .reset                   (reset                              ),
     // IO interface
-
-    .rw_address                     (device_rw_address                  ),
-    .read_data                      (device_read_data[32*D0_RAM +: 32]  ),
-    .read_request                   (device_read_request[D0_RAM]        ),
-    .read_response                  (device_read_response[D0_RAM]       ),
-    .write_data                     (device_write_data                  ),
-    .write_strobe                   (device_write_strobe                ),
-    .write_request                  (device_write_request[D0_RAM]       ),
-    .write_response                 (device_write_response[D0_RAM]      )
-
+    .rw_address              (device_rw_address[4:0]             ),
+    .read_data               (device_read_data[32*D1_UART +: 32] ),
+    .read_request            (device_read_request[D1_UART]       ),
+    .read_response           (device_read_response[D1_UART]      ),
+    .write_data              (device_write_data[7:0]             ),
+    .write_request           (device_write_request[D1_UART]      ),
+    .write_response          (device_write_response[D1_UART]     ),
+    // RX/TX signals
+    .uart_tx                 (uart_tx[0]                            ),
+    .uart_rx                 (uart_rx[0]                            ),
+    // Interrupt signaling
+    .uart_irq                (irq_uart[0]                           ),
+    .uart_irq_response       (irq_uart_response[0]                  )
   );
 
   rvx_uart #(
-
-    .CLOCK_FREQUENCY                (CLOCK_FREQUENCY                    ),
-    .UART_BAUD_RATE                 (UART_BAUD_RATE                     )
-
-  ) rvx_uart_instance (
-
+    .CLOCK_FREQUENCY         (CLOCK_FREQUENCY                    ),
+    .UART_BAUD_RATE          (UART_BAUD_RATE                     )
+  ) rvx_uart1_instance (
     // Global signals
-
-    .clock                          (clock                              ),
-    .reset                          (reset                              ),
-
+    .clock                   (clock                              ),
+    .reset                   (reset_uart[1]                      ),
     // IO interface
-
-    .rw_address                     (device_rw_address[4:0]             ),
-    .read_data                      (device_read_data[32*D1_UART +: 32] ),
-    .read_request                   (device_read_request[D1_UART]       ),
-    .read_response                  (device_read_response[D1_UART]      ),
-    .write_data                     (device_write_data[7:0]             ),
-    .write_request                  (device_write_request[D1_UART]      ),
-    .write_response                 (device_write_response[D1_UART]     ),
-
+    .rw_address              (device_rw_address[4:0]             ),
+    .read_data               (device_read_data[32*D5_UART +: 32] ),
+    .read_request            (device_read_request[D5_UART]       ),
+    .read_response           (device_read_response[D5_UART]      ),
+    .write_data              (device_write_data[7:0]             ),
+    .write_request           (device_write_request[D5_UART]      ),
+    .write_response          (device_write_response[D5_UART]     ),
     // RX/TX signals
-
-    .uart_tx                        (uart_tx                            ),
-    .uart_rx                        (uart_rx                            ),
-
+    .uart_tx                 (uart_tx[1]                            ),
+    .uart_rx                 (uart_rx[1]                            ),
     // Interrupt signaling
-
-    .uart_irq                       (irq_uart                           ),
-    .uart_irq_response              (irq_uart_response                  )
-
+    .uart_irq                (irq_uart[1]                           ),
+    .uart_irq_response       (irq_uart_response[1]                  )
   );
 
-  rvx_mtimer
-  rvx_mtimer_instance (
-
+  rvx_uart #(
+    .CLOCK_FREQUENCY         (CLOCK_FREQUENCY                    ),
+    .UART_BAUD_RATE          (UART_BAUD_RATE                     )
+  ) rvx_uart2_instance (
     // Global signals
-
-    .clock                          (clock                                  ),
-    .reset                          (reset                                  ),
-
+    .clock                   (clock                              ),
+    .reset                   (reset                              ),
     // IO interface
-
-    .rw_address                     (device_rw_address[4:0]                 ),
-    .read_data                      (device_read_data[32*D2_MTIMER +: 32]   ),
-    .read_request                   (device_read_request[D2_MTIMER]         ),
-    .read_response                  (device_read_response[D2_MTIMER]        ),
-    .write_data                     (device_write_data                      ),
-    .write_strobe                   (device_write_strobe                    ),
-    .write_request                  (device_write_request[D2_MTIMER]        ),
-    .write_response                 (device_write_response[D2_MTIMER]       ),
-
+    .rw_address              (device_rw_address[4:0]             ),
+    .read_data               (device_read_data[32*D6_UART +: 32] ),
+    .read_request            (device_read_request[D6_UART]       ),
+    .read_response           (device_read_response[D6_UART]      ),
+    .write_data              (device_write_data[7:0]             ),
+    .write_request           (device_write_request[D6_UART]      ),
+    .write_response          (device_write_response[D6_UART]     ),
+    // RX/TX signals
+    .uart_tx                 (uart_tx[2]                            ),
+    .uart_rx                 (uart_rx[2]                            ),
     // Interrupt signaling
+    .uart_irq                (irq_uart[2]                           ),
+    .uart_irq_response       (irq_uart_response[2]                  )
+  );
 
-    .irq                            (irq_timer                              )
+  rvx_uart #(
+    .CLOCK_FREQUENCY         (CLOCK_FREQUENCY                    ),
+    .UART_BAUD_RATE          (UART_BAUD_RATE                     )
+  ) rvx_uart3_instance (
+    // Global signals
+    .clock                   (clock                              ),
+    .reset                   (reset                              ),
+    // IO interface
+    .rw_address              (device_rw_address[4:0]             ),
+    .read_data               (device_read_data[32*D7_UART +: 32] ),
+    .read_request            (device_read_request[D7_UART]       ),
+    .read_response           (device_read_response[D7_UART]      ),
+    .write_data              (device_write_data[7:0]             ),
+    .write_request           (device_write_request[D7_UART]      ),
+    .write_response          (device_write_response[D7_UART]     ),
+    // RX/TX signals
+    .uart_tx                 (uart_tx[3]                            ),
+    .uart_rx                 (uart_rx[3]                            ),
+    // Interrupt signaling
+    .uart_irq                (irq_uart[3]                           ),
+    .uart_irq_response       (irq_uart_response[3]                  )
+  );
 
+  rvx_mtimer rvx_mtimer_instance (
+    // Global signals
+    .clock             (clock                                  ),
+    .reset             (reset                                  ),
+    // IO interface
+    .rw_address        (device_rw_address[4:0]                 ),
+    .read_data         (device_read_data[32*D2_MTIMER +: 32]   ),
+    .read_request      (device_read_request[D2_MTIMER]         ),
+    .read_response     (device_read_response[D2_MTIMER]        ),
+    .write_data        (device_write_data                      ),
+    .write_strobe      (device_write_strobe                    ),
+    .write_request     (device_write_request[D2_MTIMER]        ),
+    .write_response    (device_write_response[D2_MTIMER]       ),
+    // Interrupt signaling
+    .irq               (irq_timer                              )
   );
 
   rvx_gpio #(
-
-    .GPIO_WIDTH                     (GPIO_WIDTH                             )
-
+    .GPIO_WIDTH        (GPIO_WIDTH                             )
   ) rvx_gpio_instance (
-
     // Global signals
-
-    .clock                          (clock                                  ),
-    .reset                          (reset                                  ),
-
+    .clock             (clock                                  ),
+    .reset             (reset                                  ),
     // IO interface
-
-    .rw_address                     (device_rw_address[4:0]                 ),
-    .read_data                      (device_read_data[32*D3_GPIO +: 32]     ),
-    .read_request                   (device_read_request[D3_GPIO]           ),
-    .read_response                  (device_read_response[D3_GPIO]          ),
-    .write_data                     (device_write_data[GPIO_WIDTH-1:0]      ),
-    .write_strobe                   (device_write_strobe                    ),
-    .write_request                  (device_write_request[D3_GPIO]          ),
-    .write_response                 (device_write_response[D3_GPIO]         ),
-
+    .rw_address        (device_rw_address[4:0]                 ),
+    .read_data         (device_read_data[32*D3_GPIO +: 32]     ),
+    .read_request      (device_read_request[D3_GPIO]           ),
+    .read_response     (device_read_response[D3_GPIO]          ),
+    .write_data        (device_write_data[GPIO_WIDTH-1:0]      ),
+    .write_strobe      (device_write_strobe                    ),
+    .write_request     (device_write_request[D3_GPIO]          ),
+    .write_response    (device_write_response[D3_GPIO]         ),
     // I/O signals
-
-    .gpio_input                     (gpio_input                             ),
-    .gpio_oe                        (gpio_oe                                ),
-    .gpio_output                    (gpio_output                            )
-
+    .gpio_input        (gpio_input                             ),
+    .gpio_oe           (gpio_oe                                ),
+    .gpio_output       (gpio_output                            )
   );
 
   rvx_spi #(
-
     .SPI_NUM_CHIP_SELECT            (SPI_NUM_CHIP_SELECT                    )
-
   ) rvx_spi_instance (
-
     // Global signals
-
     .clock                          (clock                              ),
     .reset                          (reset                              ),
-
     // IO interface
-
     .rw_address                     (device_rw_address[4:0]             ),
     .read_data                      (device_read_data[32*D4_SPI +: 32]  ),
     .read_request                   (device_read_request[D4_SPI]        ),
@@ -336,16 +432,30 @@ module rvx #(
     .write_strobe                   (device_write_strobe                ),
     .write_request                  (device_write_request[D4_SPI]       ),
     .write_response                 (device_write_response[D4_SPI]      ),
-
     // SPI signals
-
     .sclk                           (sclk                               ),
     .pico                           (pico                               ),
     .poci                           (poci                               ),
     .cs                             (cs                                 )
-
   );
 
+  rvx_pmu rvx_pmu_i (
+    .clock (clock),
+    .reset (reset),
+    .rw_address     (device_rw_address[4:0]             ),
+    .read_data      (device_read_data[32*D8_PMU +: 32] ),
+    .read_request   (device_read_request[D8_PMU]       ),
+    .read_response  (device_read_response[D8_PMU]      ),
+    .write_data     (device_write_data[7:0]             ),
+    .write_request  (device_write_request[D8_PMU]      ),
+    .write_response (device_write_response[D8_PMU]     ),
+    // PMU Control Signals
+    .save_o (save),
+    .rest_o (rest),
+    .iso_o (iso),
+    .sleep_o (sleep_control),
+    .sleep_i (sleep_ack)
+  );
   // Avoid warnings about intentionally unused pins/wires
   wire unused_ok =
     &{1'b0,

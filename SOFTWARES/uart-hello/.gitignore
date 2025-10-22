@@ -1,0 +1,13 @@
+/[Dd]ump*/
+/[Dd]ebug*/
+/[Rr]elease*/
+/[Bb]uild*/
+/MinSizeRel*/
+/RelWithDebInfo*/
+
+sim/*
+sim-mem/*
+sim-pwr/*
+.simvision/*
+
+!.gitignore

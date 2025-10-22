@@ -28,12 +28,14 @@ module mcu_sim #(
     output  wire  [SPI_NUM_CHIP_SELECT-1:0] cs
   );
 
+  `define MEMORY_FILE "./../build/uart-hello.hex"
+
   rvx #(
 
     .CLOCK_FREQUENCY          (50000000           ),
     .UART_BAUD_RATE           (9600               ),
     .MEMORY_SIZE              (32768              ),
-    .MEMORY_INIT_FILE         (""                 ),
+    .MEMORY_INIT_FILE         (`MEMORY_FILE       ),
     .BOOT_ADDRESS             (32'h00000000       ),
     .GPIO_WIDTH               (GPIO_WIDTH         )
 

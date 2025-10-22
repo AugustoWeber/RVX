@@ -1,0 +1,217 @@
+#--------------------------------------------------------------------------------------------------
+# UPF File for the RISC-V Steel
+#
+# Author: Augusto G. Weber
+# Date: 15/07/2025
+#
+# Description: This file presents the UPF for the UART and for the SPI modules for the RISC-V Steel
+#              It will not be a fully functional module.
+#
+#--------------------------------------------------------------------------------------------------
+
+upf_version 3.1
+
+set_design_top tb_rvx -testbench
+set_scope tb_rvx/dut/rvx_instance
+
+create_supply_net VDD
+create_supply_port VDD
+connect_supply_net VDD -ports VDD
+
+create_supply_net VSS
+create_supply_port VSS
+connect_supply_net VSS -ports VSS
+
+
+create_supply_set SS_CORE -function {power VDD} -function {ground VSS}
+create_power_domain PD_CORE -supply {primary SS_CORE} -include_scope
+
+# PMU: rvx_pmu_i
+# wire [7:0] ice, ice2, iso, sleep_control, sleep_ack;
+
+#####################
+#  UART 0           #
+#####################
+create_supply_net VDD_UART_0
+# create_supply_port rvx_uart0_instance/VDD
+# connect_supply_net VDD_UART_0 -ports rvx_uart0_instance/VDD
+
+create_supply_set SS_UART0 -function {power VDD_UART_0} -function {ground VSS}
+create_power_domain PD_UART_0 -supply {primary SS_UART0} -elements rvx_uart0_instance
+
+# Switch
+create_power_switch PS_UART0 \
+  -domain PD_UART_0 \
+  -input_supply_port { TVDD VDD } \
+  -output_supply_port { VDD VDD_UART_0 } \
+  -control_port { NSEELPIN !sleep_control[0] } \
+  -ack_port {NSLEEPOUT sleep_ack[0]} \
+  -on_state { UART0_ON TVDD !NSEELPIN }
+
+
+# Retention
+set_retention RETAIN_UART0 -domain PD_UART_0 \
+  -retention_supply_set SS_CORE \                  
+  -save_signal    { save[0] posedge } \
+  -restore_signal { rest[0] negedge } \
+
+# Isolation
+set_isolation ISO_UART0_LOW \
+  -domain PD_UART_0 \
+  -applies_to outputs \
+  -isolation_supply_set SS_CORE \
+  -isolation_signal {iso[0]} \
+  -clamp_value 0
+
+set_isolation ISO_UART0_HIGH \
+  -domain PD_UART_0 \
+  -elements {rvx_uart0_instance/uart_tx} \
+  -isolation_supply_set SS_CORE \
+  -isolation_signal {iso[0]} \
+  -clamp_value 1
+
+# set_isolation ISO_UART0_BAUDOUT \
+#   -domain PD_UART0 \
+#   -elements {uart0/BAUDOUT_} \
+#   -isolation_supply_set SS_DUT \
+#   -isolation_signal UART0_BASE_PV[3] \
+#   -clamp_value latch
+
+
+#####################
+#  UART 1           #
+#####################
+create_supply_net VDD_UART_1
+# create_supply_port rvx_uart0_instance/VDD
+# connect_supply_net VDD_UART_1 -ports rvx_uart0_instance/VDD
+
+create_supply_set SS_UART1 -function {power VDD_UART_1} -function {ground VSS}
+create_power_domain PD_UART_1 -supply {primary SS_UART1} -elements rvx_uart1_instance
+
+# Switch
+create_power_switch PS_UART1 \
+  -domain PD_UART_1 \
+  -input_supply_port { TVDD VDD } \
+  -output_supply_port { VDD VDD_UART_1 } \
+  -control_port { NSEELPIN !sleep_control[1] } \
+  -ack_port {NSLEEPOUT sleep_ack[1]} \
+  -on_state { UART1_ON TVDD !NSEELPIN } \
+
+
+# Retention
+set_retention RETAIN_UART1 -domain PD_UART_1 \
+  -retention_supply_set SS_CORE \                  
+  -save_signal    { save[1] posedge } \
+  -restore_signal { rest[1] negedge } \
+
+# Isolation
+set_isolation ISO_UART1_LOW \
+  -domain PD_UART_1 \
+  -applies_to outputs \
+  -isolation_supply_set SS_CORE \
+  -isolation_signal {iso[1]} \
+  -clamp_value 0
+
+set_isolation ISO_UART1_HIGH \
+  -domain PD_UART_1 \
+  -elements {rvx_uart1_instance/uart_tx} \
+  -isolation_supply_set SS_CORE \
+  -isolation_signal {iso[1]} \
+  -clamp_value 1
+
+
+
+#####################
+#  UART 2           #
+#####################
+create_supply_net VDD_UART_2
+# create_supply_port rvx_uart0_instance/VDD
+# connect_supply_net VDD_UART_2 -ports rvx_uart0_instance/VDD
+
+create_supply_set SS_UART2 -function {power VDD_UART_2} -function {ground VSS}
+create_power_domain PD_UART_2 -supply {primary SS_UART2} -elements rvx_uart2_instance
+
+# Switch
+create_power_switch PS_UART2 \
+  -domain PD_UART_2 \
+  -input_supply_port { TVDD VDD } \
+  -output_supply_port { VDD VDD_UART_2 } \
+  -control_port { NSEELPIN !sleep_control[2] } \
+  -ack_port {NSLEEPOUT sleep_ack[2]} \
+  -on_state { UART2_ON TVDD !NSEELPIN } \
+
+
+# Retention
+set_retention RETAIN_UART2 -domain PD_UART_2 \
+  -retention_supply_set SS_CORE \                  
+  -save_signal    { save[2] posedge } \
+  -restore_signal { rest[2] negedge } \
+
+# Isolation
+set_isolation ISO_UART2_LOW \
+  -domain PD_UART_2 \
+  -applies_to outputs \
+  -isolation_supply_set SS_CORE \
+  -isolation_signal {iso[2]} \
+  -clamp_value 0
+
+set_isolation ISO_UART2_HIGH \
+  -domain PD_UART_2 \
+  -elements {rvx_uart2_instance/uart_tx} \
+  -isolation_supply_set SS_CORE \
+  -isolation_signal {iso[2]} \
+  -clamp_value 1
+
+
+#####################
+#  UART 3           #
+#####################
+create_supply_net VDD_UART_3
+# create_supply_port rvx_uart0_instance/VDD
+# connect_supply_net VDD_UART_3 -ports rvx_uart0_instance/VDD
+
+create_supply_set SS_UART3 -function {power VDD_UART_3} -function {ground VSS}
+create_power_domain PD_UART_3 -supply {primary SS_UART3} -elements rvx_uart3_instance
+
+# Switch
+create_power_switch PS_UART3 \
+  -domain PD_UART_3 \
+  -input_supply_port { TVDD VDD } \
+  -output_supply_port { VDD VDD_UART_3 } \
+  -control_port { NSEELPIN !sleep_control[3] } \
+  -ack_port {NSLEEPOUT sleep_ack[3]} \
+  -on_state { UART3_ON TVDD !NSEELPIN } \
+
+
+# Retention
+set_retention RETAIN_UART3 -domain PD_UART_3 \
+  -retention_supply_set SS_CORE \                  
+  -save_signal    { save[3] posedge } \
+  -restore_signal { rest[3] negedge } \
+
+# Isolation
+set_isolation ISO_UART3_LOW \
+  -domain PD_UART_3 \
+  -applies_to outputs \
+  -isolation_supply_set SS_CORE \
+  -isolation_signal {iso[3]} \
+  -clamp_value 0
+
+set_isolation ISO_UART3_HIGH \
+  -domain PD_UART_3 \
+  -elements {rvx_uart3_instance/uart_tx} \
+  -isolation_supply_set SS_CORE \
+  -isolation_signal {iso[3]} \
+  -clamp_value 1
+
+
+#############################
+# UPF 1.0 Power State Table #
+#############################
+# add_port_state VSS        -state {GND 0.0}
+# add_port_state VDD        -state {ON  0.8} -state {OFF off}
+# add_port_state VDD_UART_0 -state {UART0_ON  0.8} -state {OFF off}
+
+# create_pst PST -supplies {VSS VDD VDD_UART_0 }
+
+# add_pst_state S_0001 -pst PST -state {GND ON UART0_ON}
