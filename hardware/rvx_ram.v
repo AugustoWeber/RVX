@@ -94,16 +94,6 @@ module rvx_ram #(
 
 `else //MEM_ARM
 
-  // integer i;
-  // initial begin: Memory_init
-  //   // wire tmp_array;
-  //   reg [31:0] tmp_array = {tb_rvx.dut.rvx_instance.rvx_ram_i.rvx_sram_i.MEM_CLUSTER[0].sram.uPRIM0.array[33:18] , tb_rvx.dut.rvx_instance.rvx_ram_i.rvx_sram_i.MEM_CLUSTER[0].sram.uPRIM0.array[15:0]};
-  //   for (i = 0; i < MEMORY_SIZE; i = i + 1) 
-  //     tb_rvx.dut.rvx_instance.rvx_ram_i.rvx_sram_i.MEM_CLUSTER[0].sram.uPRIM0.array[i] = 0;
-  //   if (MEMORY_INIT_FILE != "")
-  //     $readmemh(MEMORY_INIT_FILE, tmp_array);
-  // end
-  // reg read_data_o;
   reg be;
   always @(posedge clock) begin
     if (reset) begin

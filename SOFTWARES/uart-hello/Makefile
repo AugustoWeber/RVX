@@ -24,7 +24,8 @@ endif
 # RTL_LIST += ../*.v
 # RTL_LIST += ../*.sv
 
-RTL_LIST = ../../../hardware/rvx_bus.v 
+RTL_LIST  = ../../../hardware/rvx_bus.v
+RTL_LIST += ../../../hardware/rvx_macros.vh
 RTL_LIST += ../../../hardware/rvx_core.v 
 RTL_LIST += ../../../hardware/rvx_gpio.v 
 RTL_LIST += ../../../hardware/rvx_mtimer.v 
