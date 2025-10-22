@@ -15,15 +15,30 @@ ifdef PREFIX
 TOOLCHAIN_PREFIX_FLAG = -DTOOLCHAIN_PREFIX="${PREFIX}/bin/riscv32-unknown-elf-"
 endif
 
-RTL_LIST = ../../../hardware/*.v
-RTL_LIST += ../../../hardware/*.sv
-# RTL_LIST += ../rvx_wrapper.v 
-RTL_LIST += ../../../../sram/rtl/sram_wrapper.sv
-RTL_LIST += ../../../../sram/sram_8192/sram_8192_emulation.v
-RTL_LIST += ../../../hardware/tb_tools/*.sv
-RTL_LIST += ../*.v
-RTL_LIST += ../*.sv
-XRUN_ARGS  = -64bit -sv -v93 -mess -timescale 1ns/1ps -access +rw -clean
+# RTL_LIST = ../../../hardware/*.v
+# RTL_LIST += ../../../hardware/*.sv
+# # RTL_LIST += ../rvx_wrapper.v 
+# RTL_LIST += ../../../../sram/rtl/sram_wrapper.sv
+# RTL_LIST += ../../../../sram/sram_8192/sram_8192_emulation.v
+# RTL_LIST += ../../../hardware/tb_tools/*.sv
+# RTL_LIST += ../*.v
+# RTL_LIST += ../*.sv
+
+RTL_LIST = ../../../hardware/rvx_bus.v 
+RTL_LIST += ../../../hardware/rvx_core.v 
+RTL_LIST += ../../../hardware/rvx_gpio.v 
+RTL_LIST += ../../../hardware/rvx_mtimer.v 
+RTL_LIST += ../../../hardware/rvx_ram.v 
+RTL_LIST += ../../../hardware/rvx_spi.v 
+RTL_LIST += ../../../hardware/rvx_uart.v 
+RTL_LIST += ../../../hardware/rvx.v 
+RTL_LIST += ../../../hardware/rvx_pmu.sv 
+RTL_LIST += ../../../hardware/tb_tools/uart_rx_module.sv 
+# RTL_LIST += ../../../hardware/tb_tools/uart_tx_file.sv 
+RTL_LIST += ../../../../sram/sram_8192/sram_8192_emulation.v 
+RTL_LIST += ../rvx_wrapper.v 
+RTL_LIST += ../rvx_tb.sv
+XRUN_ARGS  = -64bit -sv -v93 -mess -timescale 1ns/1ps -access +rw -clean -gui
 XRUN_ARGS += -define MEMORY_FILE="./../build/programa.hex"
 XRUN_ARGS_MEM += ${XRUN_ARGS} -defineall MEM_ARM 
 XRUN_ARGS_PWR = ${XRUN_ARGS} -defineall UPF -lps_1801 ../../../hardware/rvx_steel.upf -lps_logfile lps.log -lps_verbose 3 -lps_psn_verbose 2
@@ -52,7 +67,7 @@ sim-all:
 	@mkdir -p sim-pwr && cd sim-mem-pwr && xrun -clean &&  xrun ${RTL_LIST} ${XRUN_ARGS_MEM_PWR}
 
 clean:
-	@rm -rf build dump
+# 	@rm -rf build dump
 	@echo "Build directory deleted."
 	@rm -rf sim
 
