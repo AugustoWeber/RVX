@@ -45,33 +45,69 @@ module tb_rvx;
     .cs       (cs)
   );
 
-  generate
-    for (genvar uart_id = 0;uart_id <4 ; uart_id++) begin
-      // tb_uart_tx_file #(
-      //   .BAUD_RATE (UART_BAUD_RATE), 
-      //   .FILE_NAME($sformatf("uart%0d_tx.hex", uart_id))
-      // ) uart_tx_i(
-      //   .rst_ni (reset),
-      //   .enable_i(1'b0),
-      //   .tx_o (uart_rx[uart_id]),
-      //   .done_o(uart_rx_done[uart_id])
-      // );
+  // generate
+  //   for (genvar uart_id = 0;uart_id <4 ; uart_id++) begin
+  //     // tb_uart_tx_file #(
+  //     //   .BAUD_RATE (UART_BAUD_RATE), 
+  //     //   .FILE_NAME($sformatf("uart%0d_tx.hex", uart_id))
+  //     // ) uart_tx_i(
+  //     //   .rst_ni (reset),
+  //     //   .enable_i(1'b0),
+  //     //   .tx_o (uart_rx[uart_id]),
+  //     //   .done_o(uart_rx_done[uart_id])
+  //     // );
 
-      uart_tb_rx #(
-        .BAUD_RATE (UART_BAUD_RATE),
-        .FILENAME ($sformatf("uart%0d_recived.txt", uart_id)) 
-      ) uart_rx_i (
-        .rx (uart_tx[uart_id]),
-        .rx_en (1'b1),
-        .word_done(uart_tx_done[uart_id])
-      );
-    end
-  endgenerate
+  //     uart_tb_rx #(
+  //       .BAUD_RATE (UART_BAUD_RATE),
+  //       .FILENAME ($sformatf("uart%0d_recived.txt", uart_id)) 
+  //     ) uart_rx_i (
+  //       .rx (uart_tx[uart_id]),
+  //       .rx_en (1'b1),
+  //       .word_done(uart_tx_done[uart_id])
+  //     );
+  //   end
+  // endgenerate
+
+  uart_tb_rx #(
+    .BAUD_RATE (UART_BAUD_RATE),
+    .FILENAME ("uart0_recived.txt") 
+  ) uart_0_rx_i (
+    .rx (uart_tx[0]),
+    .rx_en (1'b1),
+    .word_done(uart_tx_done[0])
+  );
+
+  uart_tb_rx #(
+    .BAUD_RATE (UART_BAUD_RATE),
+    .FILENAME ("uart1_recived.txt") 
+  ) uart_1_rx_i (
+    .rx (uart_tx[1]),
+    .rx_en (1'b1),
+    .word_done(uart_tx_done[1])
+  );
+
+  uart_tb_rx #(
+    .BAUD_RATE (UART_BAUD_RATE),
+    .FILENAME ("uart2_recived.txt") 
+  ) uart_2_rx_i (
+    .rx (uart_tx[2]),
+    .rx_en (1'b1),
+    .word_done(uart_tx_done[2])
+  );
+
+  uart_tb_rx #(
+    .BAUD_RATE (UART_BAUD_RATE),
+    .FILENAME ("uart3_recived.txt") 
+  ) uart_3_rx_i (
+    .rx (uart_tx[3]),
+    .rx_en (1'b1),
+    .word_done(uart_tx_done[3])
+  );
 
   // UART_0 RX <--- TX UART_3
   assign uart_rx[0] = uart_tx[3];
 
-  // ***********************************
+  // *********************************************************
   initial
   begin: timing_format
     $timeformat(-9, 0, "ns", 9);
@@ -138,34 +174,37 @@ module tb_rvx;
   endtask
   `endif
 
-
+  // *********************************************************
   // Clock generation
-  initial begin
+  initial begin: CLK
     clock = 0;
     forever #10 clock = ~clock; // 50 MHz clock
   end
 
+  // *********************************************************
   // Power On
   `ifdef UPF
-  initial begin
+  initial begin: UPF_PSU
     reg state;
     state=$supply_on("tb_rvx.dut.rvx_instance.VSS", 0.0);
     state=$supply_on("tb_rvx.dut.rvx_instance.VDD", 0.8);
   end
   `endif //UPF
 
-  initial begin
+  // *********************************************************
+  // RESET
+  initial begin: RESET
     reset = 1;
     #327750ns;
     reset = 0;
     halt = 0;
   end
-
-  // Reset and basic stimulus
-  initial begin
+  // *********************************************************
+  // MAIN stimulus
+  initial begin: MAIN
     // Initialize inputs
     `ifdef MEM_ARM
-    MEM_INIT();
+      MEM_INIT();
     `endif // MEM_ARM
     // reset = 1;
     // halt = 0;
@@ -179,17 +218,17 @@ module tb_rvx;
     // reset = 0;
 
     // Basic GPIO test
-    #10;
+    #10ns;
     gpio_input = 4'b1010;
 
     // Simulate halt
-    #50;
+    #50ns;
     halt = 1;
     do_wait(1);
     halt = 0;
 
     // SPI input change
-    #30;
+    #30ns;
     poci = 1;
 
     // UART test signal (idle -> start -> data bits)

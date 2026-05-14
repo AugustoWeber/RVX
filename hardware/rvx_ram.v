@@ -54,8 +54,7 @@ module rvx_ram #(
       $readmemh(MEMORY_INIT_FILE,ram);
   end
 
-  assign effective_address =
-    $unsigned(rw_address[31:0] >> 2);
+  assign effective_address = $unsigned(rw_address[31:0] >> 2);
 
   always @(posedge clock) begin
     if (reset_internal | invalid_address)

@@ -36,8 +36,8 @@ module rvx #(
   output  wire                            sclk        ,
   output  wire                            pico        ,
   input   wire                            poci        ,
-  output  wire  [SPI_NUM_CHIP_SELECT-1:0] cs          ,
-  input   wire                            TM  // DFT pin Test Mode
+  output  wire  [SPI_NUM_CHIP_SELECT-1:0] cs          
+  // input   wire                            TM  // DFT pin Test Mode
   // DFT pins:
   // TM: Test Mode, Specific propose Pin
   // SI: GPIO 0-3

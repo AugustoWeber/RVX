@@ -35,14 +35,20 @@ RTL_LIST += ../../../hardware/rvx_uart.v
 RTL_LIST += ../../../hardware/rvx.v 
 RTL_LIST += ../../../hardware/rvx_pmu.sv 
 RTL_LIST += ../../../hardware/tb_tools/uart_rx_module.sv 
-# RTL_LIST += ../../../hardware/tb_tools/uart_tx_file.sv 
+# RTL_LIST += ../../../hardware/tb_tools/uart_tx_file.sv
+RTL_LIST += ../../../../sram/rtl/sram_wrapper.sv
 RTL_LIST += ../../../../sram/sram_8192/sram_8192_emulation.v 
 RTL_LIST += ../rvx_wrapper.v 
 RTL_LIST += ../rvx_tb.sv
 XRUN_ARGS  = -64bit -sv -v93 -mess -timescale 1ns/1ps -access +rw -clean -gui
 XRUN_ARGS += -define MEMORY_FILE="./../build/programa.hex"
+XRUN_ARGS += -top tb_rvx
 XRUN_ARGS_MEM += ${XRUN_ARGS} -defineall MEM_ARM 
 XRUN_ARGS_PWR = ${XRUN_ARGS} -defineall UPF -lps_1801 ../../../hardware/rvx_steel.upf -lps_logfile lps.log -lps_verbose 3 -lps_psn_verbose 2
+# XRUN_ARGS_PWR += -upf_enable_hdl_compile -upf_enable_supply_check
+# xrun(64): 24.09-s005: (c) Copyright 1995-2025 Cadence Design Systems, Inc.
+# xrun: *SE,BDOPT: Unknown option -upf_enable_hdl_compile.
+# xrun: *SE,BDOPT: Unknown option -upf_enable_supply_check.
 XRUN_ARGS_MEM_PWR = ${XRUN_ARGS_PWR} -defineall MEM_ARM 
 
 all: sim
@@ -71,5 +77,8 @@ clean:
 # 	@rm -rf build dump
 	@echo "Build directory deleted."
 	@rm -rf sim
+
+clean-pwr:
+	@rm -rf sim-pwr
 
 .PHONY: debug release sim clean

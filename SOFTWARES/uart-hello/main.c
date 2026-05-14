@@ -135,6 +135,8 @@ __NAKED void fast0_irq_handler(void)
 void main(void)
 {
   timer_setup(32000);
+  uint32_t PMU*= 0x80004000;
+  uint32_t PMU_SLEEP = 0; 
   uart_write_string(UART_0, "Hello World from RVX!\n");
   uart_write_string(UART_1, "Aqui vai uma Espumante");
   uart_write_string(UART_2, "BEM,");

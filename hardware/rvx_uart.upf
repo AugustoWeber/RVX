@@ -23,12 +23,12 @@ create_supply_port VSS
 connect_supply_net VSS -ports VSS
 
 
-create_supply_set SS_CORE -function {power VDD} -function {ground VSS}
-create_power_domain PD_CORE -supply {primary SS_CORE} -include_scope
+create_supply_set SS_AON -function {power VDD} -function {ground VSS}
+create_power_domain PD_CORE -supply {primary SS_AON} -include_scope
 
 # PMU: rvx_pmu_i
 # wire [7:0] ice, ice2, iso, sleep_control, sleep_ack;
-add_power_state SS_CORE \
+add_power_state SS_AON \
   -state ON  { -supply_expr {power == `{FULL_ON, 0.8} && ground == `{FULL_ON, 0.0}} -simstate NORMAL }
 
 #####################
@@ -48,14 +48,14 @@ create_power_switch PS_UART0 \
   -output_supply_port { VDD VDD_UART_0 } \
   -control_port { NSEELPIN !sleep_control[0] } \
   -ack_port {NSLEEPOUT sleep_ack[0]} \
-  -supply_set SS_CORE \
+  -supply_set SS_AON \
   -ack_delay {NSLEEPOUT 2ns} \
   -on_state { UART0_ON TVDD !NSEELPIN }\
   -off_state { OFF NSEELPIN}
 
 # Retention
 set_retention RETAIN_UART0 -domain PD_UART_0 \
-  -retention_supply_set SS_CORE \                  
+  -retention_supply_set SS_AON \                  
   -save_signal    { save[0] posedge } \
   -restore_signal { rest[0] negedge } \
 
@@ -63,14 +63,14 @@ set_retention RETAIN_UART0 -domain PD_UART_0 \
 set_isolation ISO_UART0_LOW \
   -domain PD_UART_0 \
   -applies_to outputs \
-  -isolation_supply_set SS_CORE \
+  -isolation_supply_set SS_AON \
   -isolation_signal {iso[0]} \
   -clamp_value 0
 
 set_isolation ISO_UART0_HIGH \
   -domain PD_UART_0 \
   -elements {rvx_uart0_instance/uart_tx} \
-  -isolation_supply_set SS_CORE \
+  -isolation_supply_set SS_AON \
   -isolation_signal {iso[0]} \
   -clamp_value 1
 
@@ -102,7 +102,7 @@ create_power_switch PS_UART1 \
   -output_supply_port { VDD VDD_UART_1 } \
   -control_port { NSEELPIN !sleep_control[1] } \
   -ack_port {NSLEEPOUT sleep_ack[1]} \
-  -supply_set SS_CORE \
+  -supply_set SS_AON \
   -ack_delay {NSLEEPOUT 2ns} \
   -on_state  { UART1_ON TVDD !NSEELPIN }\
   -off_state { OFF NSEELPIN}
@@ -110,7 +110,7 @@ create_power_switch PS_UART1 \
 
 # Retention
 set_retention RETAIN_UART1 -domain PD_UART_1 \
-  -retention_supply_set SS_CORE \                  
+  -retention_supply_set SS_AON \                  
   -save_signal    { save[1] posedge } \
   -restore_signal { rest[1] negedge } \
 
@@ -118,14 +118,14 @@ set_retention RETAIN_UART1 -domain PD_UART_1 \
 set_isolation ISO_UART1_LOW \
   -domain PD_UART_1 \
   -applies_to outputs \
-  -isolation_supply_set SS_CORE \
+  -isolation_supply_set SS_AON \
   -isolation_signal {iso[1]} \
   -clamp_value 0
 
 set_isolation ISO_UART1_HIGH \
   -domain PD_UART_1 \
   -elements {rvx_uart1_instance/uart_tx} \
-  -isolation_supply_set SS_CORE \
+  -isolation_supply_set SS_AON \
   -isolation_signal {iso[1]} \
   -clamp_value 1
 
@@ -151,14 +151,14 @@ create_power_switch PS_UART2 \
   -output_supply_port { VDD VDD_UART_2 } \
   -control_port { NSEELPIN !sleep_control[2] } \
   -ack_port {NSLEEPOUT sleep_ack[2]} \
-  -supply_set SS_CORE \
+  -supply_set SS_AON \
   -ack_delay {NSLEEPOUT 2ns} \
   -on_state  { UART2_ON TVDD !NSEELPIN }\
   -off_state { OFF NSEELPIN}
 
 # Retention
 set_retention RETAIN_UART2 -domain PD_UART_2 \
-  -retention_supply_set SS_CORE \                  
+  -retention_supply_set SS_AON \                  
   -save_signal    { save[2] posedge } \
   -restore_signal { rest[2] negedge } \
 
@@ -166,14 +166,14 @@ set_retention RETAIN_UART2 -domain PD_UART_2 \
 set_isolation ISO_UART2_LOW \
   -domain PD_UART_2 \
   -applies_to outputs \
-  -isolation_supply_set SS_CORE \
+  -isolation_supply_set SS_AON \
   -isolation_signal {iso[2]} \
   -clamp_value 0
 
 set_isolation ISO_UART2_HIGH \
   -domain PD_UART_2 \
   -elements {rvx_uart2_instance/uart_tx} \
-  -isolation_supply_set SS_CORE \
+  -isolation_supply_set SS_AON \
   -isolation_signal {iso[2]} \
   -clamp_value 1
 
@@ -198,7 +198,7 @@ create_power_switch PS_UART3 \
   -output_supply_port { VDD VDD_UART_3 } \
   -control_port { NSEELPIN !sleep_control[3] } \
   -ack_port {NSLEEPOUT sleep_ack[3]} \
-  -supply_set SS_CORE \
+  -supply_set SS_AON \
   -ack_delay {NSLEEPOUT 2ns} \
   -on_state  { UART3_ON TVDD !NSEELPIN }\
   -off_state { OFF NSEELPIN}
@@ -206,7 +206,7 @@ create_power_switch PS_UART3 \
 
 # Retention
 set_retention RETAIN_UART3 -domain PD_UART_3 \
-  -retention_supply_set SS_CORE \                  
+  -retention_supply_set SS_AON \                  
   -save_signal    { save[3] posedge } \
   -restore_signal { rest[3] negedge } \
 
@@ -214,14 +214,14 @@ set_retention RETAIN_UART3 -domain PD_UART_3 \
 set_isolation ISO_UART3_LOW \
   -domain PD_UART_3 \
   -applies_to outputs \
-  -isolation_supply_set SS_CORE \
+  -isolation_supply_set SS_AON \
   -isolation_signal {iso[3]} \
   -clamp_value 0
 
 set_isolation ISO_UART3_HIGH \
   -domain PD_UART_3 \
   -elements {rvx_uart3_instance/uart_tx} \
-  -isolation_supply_set SS_CORE \
+  -isolation_supply_set SS_AON \
   -isolation_signal {iso[3]} \
   -clamp_value 1
 
